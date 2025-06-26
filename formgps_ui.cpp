@@ -228,6 +228,7 @@ void FormGPS::on_qml_created(QObject *object, const QUrl &url)
     connect(fieldInterface,SIGNAL(field_open(QString)), this, SLOT(field_open(QString)));
     connect(fieldInterface,SIGNAL(field_new(QString)), this, SLOT(field_new(QString)));
     connect(fieldInterface,SIGNAL(field_new_from(QString,QString,int)), this, SLOT(field_new_from(QString,QString,int)));
+    connect(fieldInterface,SIGNAL(field_new_from_KML(QString,QString)), this, SLOT(field_new_from_KML(QString,QString)));
     connect(fieldInterface,SIGNAL(field_delete(QString)), this, SLOT(field_delete(QString)));
 
     //React to UI changing imuHeading, in order to reset the IMU heading
