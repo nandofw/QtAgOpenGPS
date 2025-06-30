@@ -32,269 +32,269 @@ void FormGPS::ReceiveFromAgIO()
     QByteArray datagram_data;
 
     //TODO: is this right or should we just work with one datagram at a time?
-    datagram_data = udpSocket->receiveDatagram().data();
+   
 
     while (udpSocket->hasPendingDatagrams()) {
         //receive all the data
-        datagram_data.append(udpSocket->receiveDatagram().data());
-    }
+        //datagram_data.append(udpSocket->receiveDatagram().data());
+        datagram_data = udpSocket->receiveDatagram().data();
 
-    char *data = datagram_data.data();
+        char *data = datagram_data.data();
 
-    if (datagram_data.length() > 4 && data[0] == (char)0x80 && data[1] == (char)0x81)
-    {
-        int Length = max((data[4]) + 5, 5);
-        if (datagram_data.length() > Length)
+        if (datagram_data.length() > 4 && data[0] == (char)0x80 && data[1] == (char)0x81)
         {
-            char CK_A = 0;
-            for (int j = 2; j < Length; j++)
+            int Length = max((data[4]) + 5, 5);
+            if (datagram_data.length() > Length)
             {
-                CK_A += data[j];
-            }
+                char CK_A = 0;
+                for (int j = 2; j < Length; j++)
+                {
+                    CK_A += data[j];
+                }
 
-            if (data[Length] != (char)CK_A)
+                if (data[Length] != (char)CK_A)
+                {
+                    return;
+                }
+            }
+            else
             {
                 return;
             }
-        }
-        else
-        {
-            return;
-        }
-        switch ((uchar)data[3])
-        {
-        case 0xD6:
-            if (udpWatch.elapsed() < udpWatchLimit) //simple filter to remove any sentences if we
-            {                                        //just received one, like with wifi, or some network delay.
-				udpWatchCounts++;
-                //TODO implement nmea logging
-                /*
-                if (isLogNMEA) pn.logNMEASentence.Append("*** "
-                               +  DateTime.UtcNow.ToString("ss.ff -> ", CultureInfo.InvariantCulture)
-                               + udpWatch.ElapsedMilliseconds + "\r\n");
-                */
-               return;
-            }
-            udpWatch.restart();
-
-            Lon = BitConverter_ToDouble(data, 5);
-            Lat = BitConverter_ToDouble(data, 13);
-
-            if (Lon != glm::DOUBLE_MAX && Lat != glm::DOUBLE_MAX)
+            switch ((uchar)data[3])
             {
-                if (timerSim.isActive())
-                    DisableSim();
+            case 0xD6:
+                if (udpWatch.elapsed() < udpWatchLimit) //simple filter to remove any sentences if we
+                {                                        //just received one, like with wifi, or some network delay.
+                    udpWatchCounts++;
+                    //TODO implement nmea logging
+                    /*
+                    if (isLogNMEA) pn.logNMEASentence.Append("*** "
+                                +  DateTime.UtcNow.ToString("ss.ff -> ", CultureInfo.InvariantCulture)
+                                + udpWatch.ElapsedMilliseconds + "\r\n");
+                    */
+                return;
+                }
+                udpWatch.restart();
 
-                pn.longitude = Lon;
-                pn.latitude = Lat;
+                Lon = BitConverter_ToDouble(data, 5);
+                Lat = BitConverter_ToDouble(data, 13);
 
-                pn.ConvertWGS84ToLocal(Lat, Lon, pn.fix.northing, pn.fix.easting);
-
-                //From dual antenna heading sentences
-                float temp = BitConverter_ToSingle(data, 21);
-                if (temp != glm::FLOAT_MAX)
+                if (Lon != glm::DOUBLE_MAX && Lat != glm::DOUBLE_MAX)
                 {
-                    pn.headingTrueDual = temp + pn.headingTrueDualOffset;
-                    if (pn.headingTrueDual >= 360) pn.headingTrueDual -= 360;
-                    else if (pn.headingTrueDual < 0) pn.headingTrueDual += 360;
+                    if (timerSim.isActive())
+                        DisableSim();
+
+                    pn.longitude = Lon;
+                    pn.latitude = Lat;
+
+                    pn.ConvertWGS84ToLocal(Lat, Lon, pn.fix.northing, pn.fix.easting);
+
+                    //From dual antenna heading sentences
+                    float temp = BitConverter_ToSingle(data, 21);
+                    if (temp != glm::FLOAT_MAX)
+                    {
+                        pn.headingTrueDual = temp + pn.headingTrueDualOffset;
+                        if (pn.headingTrueDual >= 360) pn.headingTrueDual -= 360;
+                        else if (pn.headingTrueDual < 0) pn.headingTrueDual += 360;
+                    }
+
+                    //from single antenna sentences (VTG,RMC)
+                    pn.headingTrue = BitConverter_ToSingle(data, 25);
+
+                    //always save the speed.
+                    temp = BitConverter_ToSingle(data, 29);
+                    if (temp != glm::FLOAT_MAX)
+                    {
+                        pn.vtgSpeed = temp;
+                    }
+
+                    //roll in degrees
+                    temp = BitConverter_ToSingle(data, 33);
+                    if (temp != glm::FLOAT_MAX)
+                    {
+                        if (ahrs.isRollInvert) temp *= -1;
+                        ahrs.imuRoll = temp - ahrs.rollZero;
+                    }
+                    if (temp == glm::FLOAT_MIN)
+                        ahrs.imuRoll = 0;
+
+                    //altitude in meters
+                    temp = BitConverter_ToSingle(data, 37);
+                    if (temp != glm::FLOAT_MAX)
+                        pn.altitude = temp;
+
+                    ushort sats = BitConverter_ToUInt16(data, 41);
+                    if (sats != glm::USHORT_MAX)
+                        pn.satellitesTracked = sats;
+
+                    char fix = data[43];
+                    if (fix != glm::BYTE_MAX)
+                        pn.fixQuality = fix;
+
+                    ushort hdop = BitConverter_ToUInt16(data, 44);
+                    if (hdop != glm::USHORT_MAX)
+                        pn.hdop = hdop * 0.01;
+
+                    ushort age = BitConverter_ToUInt16(data, 46);
+                    if (age != glm::USHORT_MAX)
+                        pn.age = age * 0.01;
+
+                    ushort imuHead = BitConverter_ToUInt16(data, 48);
+                    if (imuHead != glm::USHORT_MAX)
+                    {
+                        ahrs.imuHeading = imuHead;
+                        ahrs.imuHeading *= 0.1;
+                    }
+
+                    short imuRol = BitConverter_ToInt16(data, 50);
+                    if (imuRol != glm::SHORT_MAX)
+                    {
+                        rollK = imuRol;
+                        if (ahrs.isRollInvert) rollK *= -0.1;
+                        else rollK *= 0.1;
+                        rollK -= ahrs.rollZero;
+                        ahrs.imuRoll = ahrs.imuRoll * ahrs.rollFilter + rollK * (1 - ahrs.rollFilter);
+                    }
+
+                    short imuPich = BitConverter_ToInt16(data, 52);
+                    if (imuPich != glm::SHORT_MAX)
+                    {
+                        ahrs.imuPitch = imuPich;
+                    }
+
+                    short imuYaw = BitConverter_ToInt16(data, 54);
+                    if (imuYaw != glm::SHORT_MAX)
+                    {
+                        ahrs.imuYawRate = imuYaw;
+                    }
+
+                    sentenceCounter = 0;
+
+                    //TODO: implement logging
+                    /*
+                    if (isLogNMEA)
+                        pn.logNMEASentence.Append(
+                            DateTime.UtcNow.ToString("mm:ss.ff",CultureInfo.InvariantCulture)+ " " +
+                            Lat.ToString("N7") + " " + Lon.ToString("N7") );
+                    */
+                    UpdateFixPosition();
                 }
 
-                //from single antenna sentences (VTG,RMC)
-                pn.headingTrue = BitConverter_ToSingle(data, 25);
+                break;
 
-                //always save the speed.
-                temp = BitConverter_ToSingle(data, 29);
-                if (temp != glm::FLOAT_MAX)
+            case 0xD3: //external IMU
+                if (datagram_data.length() != 14)
+                    break;
+                if (ahrs.imuRoll > 25 || ahrs.imuRoll < -25) ahrs.imuRoll = 0;
+                //Heading
+                ahrs.imuHeading = (qint16)((data[6] << 8) + data[5]);
+                ahrs.imuHeading *= 0.1;
+
+                //Roll
+                rollK = (qint16)((data[8] << 8) + data[7]);
+
+                if (ahrs.isRollInvert) rollK *= -0.1;
+                else rollK *= 0.1;
+                rollK -= ahrs.rollZero;
+                ahrs.imuRoll = ahrs.imuRoll * ahrs.rollFilter + rollK * (1 - ahrs.rollFilter);
+
+                //Angular velocity
+                ahrs.angVel = (qint16)((data[10] << 8) + data[9]);
+                ahrs.angVel /= -2;
+
+                break;
+            case 0xD4: //imu disconnect pgn
+                if (data[5] == (char)1)
                 {
-                    pn.vtgSpeed = temp;
+                    ahrs.imuHeading = 99999;
+
+                    ahrs.imuRoll = 88888;
+
+                    ahrs.angVel = 0;
+                }
+                break;
+            case 253: //return from autosteer module
+                //Steer angle actual
+                if (datagram_data.length() != 14)
+                    break;
+                mc.actualSteerAngleChart = (qint16)((data[6] << 8) + data[5]);
+                mc.actualSteerAngleDegrees = (double)mc.actualSteerAngleChart * 0.01;
+
+                //Heading
+                head253 = (qint16)((data[8] << 8) + data[7]);
+                if (head253 != 9999)
+                {
+                    ahrs.imuHeading = head253 * 0.1;
                 }
 
-                //roll in degrees
-                temp = BitConverter_ToSingle(data, 33);
-                if (temp != glm::FLOAT_MAX)
+                //Roll
+                rollK = (qint16)((data[10] << 8) + data[9]);
+                if (rollK != 8888)
                 {
-                    if (ahrs.isRollInvert) temp *= -1;
-                    ahrs.imuRoll = temp - ahrs.rollZero;
-                }
-                if (temp == glm::FLOAT_MIN)
-                    ahrs.imuRoll = 0;
-
-                //altitude in meters
-                temp = BitConverter_ToSingle(data, 37);
-                if (temp != glm::FLOAT_MAX)
-                    pn.altitude = temp;
-
-                ushort sats = BitConverter_ToUInt16(data, 41);
-                if (sats != glm::USHORT_MAX)
-                    pn.satellitesTracked = sats;
-
-                char fix = data[43];
-                if (fix != glm::BYTE_MAX)
-                    pn.fixQuality = fix;
-
-                ushort hdop = BitConverter_ToUInt16(data, 44);
-                if (hdop != glm::USHORT_MAX)
-                    pn.hdop = hdop * 0.01;
-
-                ushort age = BitConverter_ToUInt16(data, 46);
-                if (age != glm::USHORT_MAX)
-                    pn.age = age * 0.01;
-
-                ushort imuHead = BitConverter_ToUInt16(data, 48);
-                if (imuHead != glm::USHORT_MAX)
-                {
-                    ahrs.imuHeading = imuHead;
-                    ahrs.imuHeading *= 0.1;
-                }
-
-                short imuRol = BitConverter_ToInt16(data, 50);
-                if (imuRol != glm::SHORT_MAX)
-                {
-                    rollK = imuRol;
                     if (ahrs.isRollInvert) rollK *= -0.1;
                     else rollK *= 0.1;
                     rollK -= ahrs.rollZero;
                     ahrs.imuRoll = ahrs.imuRoll * ahrs.rollFilter + rollK * (1 - ahrs.rollFilter);
                 }
+                //else ahrs.imuRoll = 88888;
 
-                short imuPich = BitConverter_ToInt16(data, 52);
-                if (imuPich != glm::SHORT_MAX)
-                {
-                    ahrs.imuPitch = imuPich;
-                }
+                //switch status
+                mc.workSwitchHigh = (data[11] & 1) == (char)1;
+                mc.steerSwitchHigh = (data[11] & 2) == (char)2;
 
-                short imuYaw = BitConverter_ToInt16(data, 54);
-                if (imuYaw != glm::SHORT_MAX)
-                {
-                    ahrs.imuYawRate = imuYaw;
-                }
+                //the pink steer dot reset
+                steerModuleConnectedCounter = 0;
 
-                sentenceCounter = 0;
+                //Actual PWM
+                mc.pwmDisplay = data[12];
 
-                //TODO: implement logging
+                //TODO implement NMEA logging
                 /*
                 if (isLogNMEA)
                     pn.logNMEASentence.Append(
-                        DateTime.UtcNow.ToString("mm:ss.ff",CultureInfo.InvariantCulture)+ " " +
-                        Lat.ToString("N7") + " " + Lon.ToString("N7") );
+                        DateTime.UtcNow.ToString("mm:ss.ff", CultureInfo.InvariantCulture) + " AS " +
+                        mc.actualSteerAngleDegrees.ToString("N1") + "\r\n"
+                        );
                 */
-                UpdateFixPosition();
+                break;
+
+            case 250:
+                if (datagram_data.length() != 14)
+                    break;
+                mc.sensorData = data[5];
+                break;
+
+            case 234://MTZ8302 Feb 2020
+                //Steer angle actual
+                if (datagram_data.length() != 14)
+                    break;
+
+                for (int i=0; i < 8 ; i++)
+                    mc.ss[i] = data[i+5];
+                DoRemoteSwitches();
+
+                break;
+
+            case 0xf4://blockage 244
+                //
+                if (datagram_data.length() != 10)
+                    break;
+
+                int i = data[6];
+                //mc.blockageseccount[data[5]*16+i] = data[7];
+                if (data[5] == 0) mc.blockageseccount1[i] = (qint16)((uint8_t(data[8]) << 8) + uint8_t(data[7]));
+                if (data[5] == 1) mc.blockageseccount2[i] = (qint16)((uint8_t(data[8]) << 8) + uint8_t(data[7]));
+                if (data[5] == 2) mc.blockageseccount3[i] = (qint16)((uint8_t(data[8]) << 8) + uint8_t(data[7]));
+                if (data[5] == 3) mc.blockageseccount4[i] = (qint16)((uint8_t(data[8]) << 8) + uint8_t(data[7]));
+                doBlockageMonitoring();
+                //qDebug() << mc.blockageseccount1[1];
+                break;
+
             }
-
-            break;
-
-        case 0xD3: //external IMU
-            if (datagram_data.length() != 14)
-                break;
-            if (ahrs.imuRoll > 25 || ahrs.imuRoll < -25) ahrs.imuRoll = 0;
-            //Heading
-            ahrs.imuHeading = (qint16)((data[6] << 8) + data[5]);
-            ahrs.imuHeading *= 0.1;
-
-            //Roll
-            rollK = (qint16)((data[8] << 8) + data[7]);
-
-            if (ahrs.isRollInvert) rollK *= -0.1;
-            else rollK *= 0.1;
-            rollK -= ahrs.rollZero;
-            ahrs.imuRoll = ahrs.imuRoll * ahrs.rollFilter + rollK * (1 - ahrs.rollFilter);
-
-            //Angular velocity
-            ahrs.angVel = (qint16)((data[10] << 8) + data[9]);
-            ahrs.angVel /= -2;
-
-            break;
-        case 0xD4: //imu disconnect pgn
-            if (data[5] == (char)1)
-            {
-                ahrs.imuHeading = 99999;
-
-                ahrs.imuRoll = 88888;
-
-                ahrs.angVel = 0;
-            }
-            break;
-        case 253: //return from autosteer module
-            //Steer angle actual
-            if (datagram_data.length() != 14)
-                break;
-            mc.actualSteerAngleChart = (qint16)((data[6] << 8) + data[5]);
-            mc.actualSteerAngleDegrees = (double)mc.actualSteerAngleChart * 0.01;
-
-            //Heading
-            head253 = (qint16)((data[8] << 8) + data[7]);
-            if (head253 != 9999)
-            {
-                ahrs.imuHeading = head253 * 0.1;
-            }
-
-            //Roll
-            rollK = (qint16)((data[10] << 8) + data[9]);
-            if (rollK != 8888)
-            {
-                if (ahrs.isRollInvert) rollK *= -0.1;
-                else rollK *= 0.1;
-                rollK -= ahrs.rollZero;
-                ahrs.imuRoll = ahrs.imuRoll * ahrs.rollFilter + rollK * (1 - ahrs.rollFilter);
-            }
-            //else ahrs.imuRoll = 88888;
-
-            //switch status
-            mc.workSwitchHigh = (data[11] & 1) == (char)1;
-            mc.steerSwitchHigh = (data[11] & 2) == (char)2;
-
-            //the pink steer dot reset
-            steerModuleConnectedCounter = 0;
-
-            //Actual PWM
-            mc.pwmDisplay = data[12];
-
-            //TODO implement NMEA logging
-            /*
-            if (isLogNMEA)
-                pn.logNMEASentence.Append(
-                    DateTime.UtcNow.ToString("mm:ss.ff", CultureInfo.InvariantCulture) + " AS " +
-                    mc.actualSteerAngleDegrees.ToString("N1") + "\r\n"
-                    );
-            */
-            break;
-
-        case 250:
-            if (datagram_data.length() != 14)
-                break;
-            mc.sensorData = data[5];
-            break;
-
-        case 234://MTZ8302 Feb 2020
-            //Steer angle actual
-            if (datagram_data.length() != 14)
-                break;
-
-            for (int i=0; i < 8 ; i++)
-                mc.ss[i] = data[i+5];
-            DoRemoteSwitches();
-
-            break;
-
-        case 0xf4://blockage 244
-            //
-            if (datagram_data.length() != 10)
-                break;
-
-            int i = data[6];
-            //mc.blockageseccount[data[5]*16+i] = data[7];
-            if (data[5] == 0) mc.blockageseccount1[i] = (qint16)((uint8_t(data[8]) << 8) + uint8_t(data[7]));
-            if (data[5] == 1) mc.blockageseccount2[i] = (qint16)((uint8_t(data[8]) << 8) + uint8_t(data[7]));
-            if (data[5] == 2) mc.blockageseccount3[i] = (qint16)((uint8_t(data[8]) << 8) + uint8_t(data[7]));
-            if (data[5] == 3) mc.blockageseccount4[i] = (qint16)((uint8_t(data[8]) << 8) + uint8_t(data[7]));
-            doBlockageMonitoring();
-            //qDebug() << mc.blockageseccount1[1];
-            break;
-
         }
-    }
     //qDebug() << pn->rawBuffer ;"Connected to blockage"
-
+    }
 
 }
 
