@@ -126,7 +126,7 @@ MoveablePopup {
 
 
 
-                    IconButtonTransparent { //was zero button
+                   /* IconButtonTransparent { //was zero button
                         width: height*2
                         Layout.alignment: Qt.AlignCenter
                         icon.source: prefix + "/images/SteerCenter.png"
@@ -222,7 +222,7 @@ MoveablePopup {
                         to: 100
                         value: Math.round(Settings.as_minSteerPWM, 0)
                         visible: gainBtn.checked
-                    }
+                    }*/
 
                     //endregion PWMtab
 
@@ -478,6 +478,12 @@ MoveablePopup {
     Timer {
         id: sendUdptimer
         interval: 1000;
-        onTriggered:  aog.modules_send_252()
+        onTriggered: function(){
+            try{
+                aog.modules_send_252()
+            }catch (error){
+                console.error(error);
+            }
+        }
     }
 }

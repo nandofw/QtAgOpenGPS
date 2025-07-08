@@ -110,6 +110,9 @@ Popup {
                 ListElement { timeout: 5000; title: "Hi"; message: "Message8" }
                 ListElement { timeout: 6000; title: "Hi"; message: "Message9" }
                 */
+                Component.onDestruction: {
+                    console.log("timedMessageModel destroyed")
+                }
             }
 
             focus: true
@@ -119,35 +122,42 @@ Popup {
             Component.onCompleted: function() {
                 timedMessageListView.positionViewAtEnd()
             }
+            Component.onDestruction: {
+                console.log("timedMessageListView destroyed")
+            }
         }
 
-        Timer {
+        /*Timer {
             interval: 200
             running: true
             repeat: true
 
             onTriggered: function() {
-                for (var i=0; i < timedMessageModel.rowCount(); i++) {
-                    timedMessageModel.get(i).timeout -= 200;
-                    if (timedMessageModel.get(i).timeout < 0) {
-                        //console.warn("Removed item " + i)
-                        timedMessageModel.remove(i)
-                        i-- //our iteration is now broken
+                try{
+                    for (var i=0; i < timedMessageModel.rowCount(); i++) {
+                        timedMessageModel.get(i).timeout -= 200;
+                        if (timedMessageModel.get(i).timeout < 0) {
+                            //console.warn("Removed item " + i)
+                            timedMessageModel.remove(i)
+                            i-- //our iteration is now broken
+                        }
                     }
-                }
-                
-                if (timedMessageModel.rowCount() === 0) {
-                    close()
-                    //timedMessage.visible = false
-                }
+                    
+                    if (timedMessageModel.rowCount() === 0) {
+                        close()
+                        //timedMessage.visible = false
+                    }
 
-                if (timedMessageModel.rowCount() > 3) {
-                    timedMessageR.height = (150 * theme.scaleHeight);
-                } else {
-                    timedMessageR.height = timedMessageModel.rowCount() * (120 * theme.scaleHeight)
+                    if (timedMessageModel.rowCount() > 3) {
+                        timedMessageR.height = (150 * theme.scaleHeight);
+                    } else {
+                        timedMessageR.height = timedMessageModel.rowCount() * (120 * theme.scaleHeight)
+                    }
+                }catch (error){
+                    console.error(error);
                 }
             }
-        }
+        }*/
     }
 
     onClosed: cancelAllMessages()
@@ -158,8 +168,8 @@ Popup {
     }
 
     function addMessage(timeout: int, title: string, message: string) {
-        //console.debug(timeout + " " + title + " " + message)
-        timedMessage.open()
+        console.debug(timeout + " " + title + " " + message)
+        /*timedMessage.open()
             
     	timedMessageModel.append( { timeout: timeout, title: title, message: message });
 
@@ -167,7 +177,7 @@ Popup {
             timedMessageR.height = (150 * theme.scaleHeight);
         } else {
             timedMessageR.height = (timedMessageModel.rowCount() * 120)
-        }
+        }*/
 
     }
 }

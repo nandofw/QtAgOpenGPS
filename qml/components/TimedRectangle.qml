@@ -11,7 +11,7 @@ Rectangle {
     onVisibleChanged: {
         if(timerR.visible === true){
             timeout = timeoutSet
-            timer.running = true
+            //timer.running = true
         }
     }
 
@@ -19,17 +19,20 @@ Rectangle {
         timeout = timeoutSet
     }
 
-    Timer {
+   /* Timer {
         id: timer
         interval: 100
         running: true
         repeat: true
-        onTriggered: {
+        onTriggered: function() {
             timerR.timeout = timerR.timeout - interval
             if(timerR.timeout < 0){
                 timer.running = false
                 timerR.visible = false
             }
         }
-    }
+        Component.onDestruction: {
+            console.log("timer timedrectangle destroyed")
+        }
+    }*/
 }

@@ -26,7 +26,7 @@ MoveablePopup {
     property string lineName2
     x: 400 * theme.scaleWidth
 
-    Timer {
+   /* Timer {
         id:txt
         interval:50; running: chartSteer.visible; repeat: true
         onTriggered: {
@@ -40,7 +40,7 @@ MoveablePopup {
             }
 
                     }
-    }
+    }*/
     TopLine{
         id: steerChartTopLine
         titleText: qsTr(chartName)
